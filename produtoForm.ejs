@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= titulo %> - Loja Pet Shop</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 1em;
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 5px rgba(102, 126, 234, 0.2);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .alert {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+
+    button,
+    .btn-voltar {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .btn-salvar {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn-salvar:hover {
+      background: #45a049;
+    }
+
+    .btn-voltar {
+      background: #9e9e9e;
+      color: white;
+    }
+
+    .btn-voltar:hover {
+      background: #757575;
+    }
+
+    .required {
+      color: #f44336;
+    }
+
+    .info {
+      background: #e3f2fd;
+      border: 1px solid #bbdefb;
+      color: #1976d2;
+      padding: 12px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        margin: 20px auto;
+      }
+
+      header h1 {
+        font-size: 1.5em;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .buttons {
+        flex-direction: column;
+      }
+
+      button, .btn-voltar {
+        flex: none;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><%= titulo %></h1>
+      <p>🐾 Loja Pet Shop</p>
+    </header>
+
+    <div class="content">
+      <% if (typeof message !== 'undefined' && message) { %>
+        <div class="alert show">
+          <%= message %>
+        </div>
+      <% } %>
+
+      <div class="info">
+        💡 Preencha todos os campos obrigatórios marcados com <span class="required">*</span>
+      </div>
+
+      <% 
+        const method = produto && produto.id ? 'POST' : 'POST';
+        const action = produto && produto.id ? `/loja/atualizar/${produto.id}` : '/loja/criar';
+      %>
+
+      <form method="<%= method %>" action="<%= action %>">
+        <div class="form-group">
+          <label for="nome">Nome do Produto <span class="required">*</span></label>
+          <input 
+            type="text" 
+            id="nome" 
+            name="nome" 
+            value="<%= produto ? produto.nome : '' %>"
+            placeholder="Ex: Ração para cães 10kg"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="tipo">Tipo/Categoria <span class="required">*</span></label>
+          <select id="tipo" name="tipo" required>
+            <option value="">-- Selecione uma categoria --</option>
+            <option value="Alimento" <%= produto && produto.tipo === 'Alimento' ? 'selected' : '' %>>Alimento</option>
+            <option value="Acessório" <%= produto && produto.tipo === 'Acessório' ? 'selected' : '' %>>Acessório</option>
+            <option value="Brinquedo" <%= produto && produto.tipo === 'Brinquedo' ? 'selected' : '' %>>Brinquedo</option>
+            <option value="Higiene" <%= produto && produto.tipo === 'Higiene' ? 'selected' : '' %>>Higiene</option>
+            <option value="Saúde" <%= produto && produto.tipo === 'Saúde' ? 'selected' : '' %>>Saúde</option>
+            <option value="Roupa" <%= produto && produto.tipo === 'Roupa' ? 'selected' : '' %>>Roupa</option>
+            <option value="Outro" <%= produto && produto.tipo === 'Outro' ? 'selected' : '' %>>Outro</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="preco">Preço (R$) <span class="required">*</span></label>
+            <input 
+              type="number" 
+              id="preco" 
+              name="preco" 
+              value="<%= produto ? produto.preco : '' %>"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="descricao">Descrição</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="descricao">Descrição do Produto</label>
+          <textarea 
+            id="descricao" 
+            name="descricao" 
+            placeholder="Descreva as características e benefícios do produto..."
+          ><%= produto ? produto.descricao : '' %></textarea>
+        </div>
+
+        <div class="buttons">
+          <button type="submit" class="btn-salvar">
+            <%= produto && produto.id ? '✏️ Atualizar Produto' : '➕ Criar Produto' %>
+          </button>
+          <a href="/loja" class="btn-voltar">← Voltar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

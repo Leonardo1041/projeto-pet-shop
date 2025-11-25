@@ -1,0 +1,37 @@
+<%- include('../public/partials/header.ejs') %>
+<body>
+  <div style="max-width:1100px;margin:40px auto;background:#fff;padding:24px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.08);">
+    <h1>Clientes</h1>
+    <p>Lista de clientes registrados (sem senhas)</p>
+
+    <table style="width:100%;border-collapse:collapse;margin-top:18px;">
+      <thead>
+        <tr style="background:#f5f5f5;text-align:left;">
+          <th style="padding:10px;border-bottom:1px solid #e0e0e0;">ID</th>
+          <th style="padding:10px;border-bottom:1px solid #e0e0e0;">Nome</th>
+          <th style="padding:10px;border-bottom:1px solid #e0e0e0;">Email</th>
+          <th style="padding:10px;border-bottom:1px solid #e0e0e0;">Telefone</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (clientes && clientes.length > 0) { %>
+          <% clientes.forEach(c => { %>
+            <tr>
+              <td style="padding:10px;border-bottom:1px solid #eee;">#<%= c.id %></td>
+              <td style="padding:10px;border-bottom:1px solid #eee;"><%= c.nome %></td>
+              <td style="padding:10px;border-bottom:1px solid #eee;"><%= c.email %></td>
+              <td style="padding:10px;border-bottom:1px solid #eee;"><%= c.telefone || '-' %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="4" style="padding:18px;text-align:center;color:#777;">Nenhum cliente cadastrado</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+
+    <div style="margin-top:16px;">
+      <a href="/admin" style="display:inline-block;padding:8px 12px;background:#667eea;color:#fff;border-radius:6px;text-decoration:none;">Voltar</a>
+    </div>
+  </div>
+</body>
+<%- include('../public/partials/footer.ejs') %>
