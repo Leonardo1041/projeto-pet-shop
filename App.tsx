@@ -38,7 +38,7 @@ export default function App() {
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>🐾 PetLoja Nexus</h1>
+        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>🐾 PetLoja</h1>
         <nav>
           <button 
             onClick={() => setView('loja')}
@@ -116,7 +116,7 @@ export default function App() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '20px', background: '#333', color: '#fff', marginTop: 'auto' }}>
-        <p>&copy; 2024 PetLoja Nexus. Todos os direitos reservados.</p>
+        <p>&copy; 2024 PetLoja. Todos os direitos reservados.</p>
       </footer>
     </div>
   );

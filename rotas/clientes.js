@@ -1,14 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const client = require('../database/connection'); // ajuste o caminho conforme necessário
+const client = require('../database/connection'); 
 const bcrypt = require('bcryptjs');
 
+// Helper para extrair linhas independente do DB (PG ou MySQL)
+const getRows = (result) => {
+    if (result.rows) return result.rows;
+    if (Array.isArray(result)) return result;
+    return [];
+};
+
 // Rota para listar todos os clientes
-router.get('/clientes', async (req, res) => {
+// Montado em /api/clientes, então rota é '/'
+router.get('/', async (req, res) => {
   try {
-    // Não retornar a senha no JSON
     const result = await client.query('SELECT id, nome, email, telefone FROM clientes ORDER BY id');
-    res.status(200).json(result.rows);
+    res.status(200).json(getRows(result));
   } catch (err) {
     console.error('Erro ao buscar clientes:', err);
     res.status(500).json({ erro: 'Erro ao buscar clientes' });
@@ -16,7 +23,8 @@ router.get('/clientes', async (req, res) => {
 });
 
 // Rota para inserir um novo cliente
-router.post('/clientes', async (req, res) => {
+// Montado em /api/clientes, então rota é '/'
+router.post('/', async (req, res) => {
   const { nome, email, telefone, senha } = req.body;
 
   if (!senha) {
@@ -24,23 +32,40 @@ router.post('/clientes', async (req, res) => {
   }
 
   try {
-    // Gerar hash da senha
     const salt = bcrypt.genSaltSync(10);
     const hash = bcrypt.hashSync(senha, salt);
 
-    const result = await client.query(
-      'INSERT INTO clientes (nome, email, telefone, senha) VALUES ($1, $2, $3, $4) RETURNING id, nome, email, telefone',
-      [nome, email, telefone, hash]
-    );
-    res.status(201).json(result.rows[0]);
+    let newUser;
+    try {
+        const result = await client.query(
+        'INSERT INTO clientes (nome, email, telefone, senha) VALUES ($1, $2, $3, $4) RETURNING id, nome, email, telefone',
+        [nome, email, telefone, hash]
+        );
+        newUser = getRows(result)[0];
+    } catch (e) {
+        // Fallback para MySQL
+        if (e.code === '42601' || e.sqlMessage?.includes('syntax')) {
+             await client.query(
+                'INSERT INTO clientes (nome, email, telefone, senha) VALUES (?, ?, ?, ?)',
+                [nome, email, telefone, hash]
+            );
+            const resUser = await client.query('SELECT id, nome, email, telefone FROM clientes WHERE email = ?', [email]);
+            newUser = getRows(resUser)[0];
+        } else {
+            throw e;
+        }
+    }
+
+    res.status(201).json(newUser || { mensagem: "Cliente criado" });
   } catch (err) {
     console.error('Erro ao inserir cliente:', err);
     res.status(500).json({ erro: 'Erro ao inserir cliente' });
   }
 });
 
-// Rota de login: compara senha informada com o hash no banco
-router.post('/clientes/login', async (req, res) => {
+// Rota de login
+// Montado em /api/clientes, então rota é '/login'
+router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
 
   if (!email || !senha) {
@@ -48,23 +73,30 @@ router.post('/clientes/login', async (req, res) => {
   }
 
   try {
-    const result = await client.query('SELECT * FROM clientes WHERE email = $1', [email]);
-    if (result.rowCount === 0) {
+    let result;
+    try {
+        result = await client.query('SELECT * FROM clientes WHERE email = $1', [email]);
+    } catch (e) {
+        result = await client.query('SELECT * FROM clientes WHERE email = ?', [email]);
+    }
+
+    const rows = getRows(result);
+    if (rows.length === 0) {
       return res.status(401).json({ erro: 'Credenciais inválidas' });
     }
 
-    const user = result.rows[0];
+    const user = rows[0];
     const match = bcrypt.compareSync(senha, user.senha || '');
     if (!match) {
       return res.status(401).json({ erro: 'Credenciais inválidas' });
     }
 
-    // Retornar dados do usuário sem a senha
     const cliente = {
       id: user.id,
       nome: user.nome,
       email: user.email,
-      telefone: user.telefone
+      telefone: user.telefone,
+      is_admin: user.is_admin // Retornando flag de admin
     };
 
     res.status(200).json({ sucesso: true, cliente });

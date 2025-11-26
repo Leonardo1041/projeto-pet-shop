@@ -1,5 +1,5 @@
 {
-  "name": "Project Nexus AI",
-  "description": "A smart project management dashboard featuring AI-powered task generation, automated summaries, and a conversational assistant, visualized with dynamic charts.",
+  "name": "Project",
+  "description": "Um painel de gerenciamento de loja com visualização de dados e gráficos dinâmicos.",
   "requestFramePermissions": []
 }

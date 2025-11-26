@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Nexus AI - Loja</title>
-  <link rel="stylesheet" href="/css/loja.css">
+  <title>Project - Loja Completa</title>
   
-  <!-- Carregando React e Babel via CDN para rodar sem build -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -15,6 +13,30 @@
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; }
     #root { width: 100%; min-height: 100vh; }
+    
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background-color: #667eea; color: white; }
+    .btn-danger { background-color: #f44336; color: white; }
+    .btn-success { background-color: #4CAF50; color: white; }
+    .btn-secondary { background-color: #999; color: white; }
+    .btn-outline { background: transparent; border: 1px solid #667eea; color: #667eea; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #333; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+    
+    .table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .table th, .table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+    .table th { background-color: #f8f9fa; font-weight: 600; color: #555; }
+
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; }
+    .badge-success { background: #e8f5e9; color: #2e7d32; }
+    .badge-warning { background: #fff3e0; color: #ef6c00; }
+
+    .error-banner { background-color: #ffebee; color: #c62828; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ef9a9a; }
   </style>
 <script type="importmap">
 {
@@ -30,160 +52,246 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState } = React;
+    const { useState, useEffect } = React;
 
-    // Cores baseadas no CONFIG_VISUAL.js
-    const COLORS = {
-      primary: '#667eea',
-      secondary: '#764ba2',
-      white: '#ffffff',
-      text: '#333333',
-      background: '#f5f5f5'
+    const api = {
+      login: async (email, senha) => {
+        const res = await fetch('/api/clientes/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, senha })
+        });
+        return res.json();
+      },
+      getProdutos: async () => {
+        try {
+            // Removida barra no final para evitar 404 em servidores estritos
+            const res = await fetch('/api/produtos', {
+                headers: { 'Accept': 'application/json' }
+            }); 
+            if (!res.ok) {
+                const text = await res.text();
+                // Tenta parsear JSON se possível, senão usa texto
+                try {
+                    const jsonError = JSON.parse(text);
+                    throw new Error(jsonError.error || jsonError.erro || `Erro API (${res.status})`);
+                } catch(e) {
+                    throw new Error(`Erro API (${res.status}): ${text.substring(0, 100)}`);
+                }
+            }
+            return res.json();
+        } catch (error) {
+            console.error("Falha API:", error);
+            throw error;
+        }
+      },
+      deleteProduto: async (id) => {
+        const res = await fetch(`/loja/deletar/${id}`, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
+        return res.json();
+      },
+      createProduto: async (produto) => {
+        const res = await fetch('/loja/criar', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(produto) });
+        return res.json();
+      },
+      updateProduto: async (id, produto) => {
+        const res = await fetch(`/loja/atualizar/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(produto) });
+        return res.json();
+      }
     };
 
-    const MOCK_PRODUTOS = [
-      { id: 1, nome: "Ração Premium", tipo: "Alimentação", preco: 149.90, descricao: "Ração de alta qualidade para cães adultos." },
-      { id: 2, nome: "Brinquedo Mordedor", tipo: "Brinquedo", preco: 29.90, descricao: "Resistente e divertido." },
-      { id: 3, nome: "Cama Confort", tipo: "Acessório", preco: 89.90, descricao: "Conforto total para seu pet." },
-      { id: 4, nome: "Coleira Ajustável", tipo: "Passeio", preco: 45.00, descricao: "Segurança e estilo." },
-    ];
+    function LoginForm({ onLogin, onCancel }) {
+      const [email, setEmail] = useState('');
+      const [senha, setSenha] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
 
-    const MOCK_STATS = {
-      produtos: 12,
-      clientes: 45,
-      vendas: 8
-    };
-
-    function App() {
-      const [view, setView] = useState('loja'); // 'loja' | 'admin'
-
-      const styles = {
-        navButton: {
-          background: 'transparent',
-          border: 'none',
-          color: 'white',
-          fontSize: '1rem',
-          cursor: 'pointer',
-          marginLeft: '15px',
-          fontWeight: 'bold',
-          padding: '5px 10px',
-        },
-        card: {
-          background: 'white',
-          padding: '20px',
-          borderRadius: '10px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
-          display: 'flex',
-          flexDirection: 'column'
-        },
-        primaryButton: {
-          background: COLORS.primary,
-          color: 'white',
-          border: 'none',
-          padding: '10px 15px',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          marginTop: 'auto'
-        },
-        secondaryButton: {
-          background: COLORS.secondary,
-          color: 'white',
-          border: 'none',
-          padding: '10px 15px',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        },
-        statCard: {
-          background: 'white',
-          padding: '20px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-          textAlign: 'center',
-          borderTop: `4px solid ${COLORS.primary}`
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+          const data = await api.login(email, senha);
+          if (data.erro) setError(data.erro);
+          else if (data.sucesso) onLogin(data.cliente);
+        } catch (err) {
+          setError('Erro ao conectar com servidor.');
+        } finally {
+          setLoading(false);
         }
       };
 
       return (
+        <div style={{ maxWidth: '400px', margin: '50px auto', background: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ textAlign: 'center', color: '#667eea' }}>Acesso ao Sistema</h2>
+          {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>{error}</div>}
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Ex: cliente@loja.com" />
+            </div>
+            <div className="form-group">
+              <label>Senha</label>
+              <input type="password" value={senha} onChange={e => setSenha(e.target.value)} required placeholder="Sua senha" />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
+            <button type="button" onClick={onCancel} className="btn btn-secondary" style={{ width: '100%', marginTop: '10px' }}>Cancelar</button>
+          </form>
+        </div>
+      );
+    }
+
+    function ProdutoForm({ produto, onSave, onCancel }) {
+        const [formData, setFormData] = useState({ nome: '', tipo: '', preco: '', descricao: '' });
+        useEffect(() => {
+            if (produto) setFormData({ nome: produto.nome, tipo: produto.tipo, preco: produto.preco, descricao: produto.descricao || '' });
+        }, [produto]);
+        return (
+            <div className="card" style={{ marginBottom: '20px' }}>
+                <h3>{produto ? 'Editar Produto' : 'Novo Produto'}</h3>
+                <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }}>
+                    <div className="form-group"> <label>Nome</label> <input value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} required /> </div>
+                    <div className="form-group"> <label>Tipo</label> <input value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} required /> </div>
+                    <div className="form-group"> <label>Preço</label> <input type="number" step="0.01" value={formData.preco} onChange={e => setFormData({...formData, preco: e.target.value})} required /> </div>
+                    <div className="form-group"> <label>Descrição</label> <textarea rows="3" value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} /> </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button type="submit" className="btn btn-success">Salvar</button>
+                        <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        );
+    }
+
+    function AdminPanel({ user, onLogout }) {
+      const [produtos, setProdutos] = useState([]);
+      const [editingProd, setEditingProd] = useState(null);
+      const [isCreating, setIsCreating] = useState(false);
+      const [msg, setMsg] = useState('');
+
+      const fetchProdutos = async () => {
+        try { const data = await api.getProdutos(); setProdutos(data); } catch (e) { console.error(e); }
+      };
+
+      useEffect(() => { fetchProdutos(); }, []);
+
+      const handleDelete = async (id) => {
+        if (!confirm('Excluir produto?')) return;
+        await api.deleteProduto(id);
+        fetchProdutos();
+        setMsg('Produto removido.');
+        setTimeout(() => setMsg(''), 3000);
+      };
+
+      const handleSave = async (data) => {
+        if (editingProd) await api.updateProduto(editingProd.id, data);
+        else await api.createProduto(data);
+        setIsCreating(false); setEditingProd(null); fetchProdutos();
+        setMsg('Salvo com sucesso!');
+        setTimeout(() => setMsg(''), 3000);
+      };
+
+      return (
+        <div className="container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+             <h2>🔧 Painel Admin</h2>
+             <div><span style={{ marginRight: '15px' }}>Olá, {user.nome}</span><button onClick={onLogout} className="btn btn-secondary">Sair</button></div>
+          </div>
+          {msg && <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', marginBottom: '15px' }}>{msg}</div>}
+          {(isCreating || editingProd) ? <ProdutoForm produto={editingProd} onSave={handleSave} onCancel={() => { setIsCreating(false); setEditingProd(null); }} /> : <button onClick={() => setIsCreating(true)} className="btn btn-primary" style={{ marginBottom: '15px' }}>+ Adicionar Produto</button>}
+          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+            <table className="table">
+                <thead><tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Preço</th><th>Ações</th></tr></thead>
+                <tbody>{produtos.map(p => (<tr key={p.id}><td>{p.id}</td><td>{p.nome}</td><td>{p.tipo}</td><td>R$ {parseFloat(p.preco).toFixed(2)}</td><td><button className="btn btn-primary" style={{ marginRight: '5px', padding: '5px' }} onClick={() => setEditingProd(p)}>✏️</button><button className="btn btn-danger" style={{ padding: '5px' }} onClick={() => handleDelete(p.id)}>🗑️</button></td></tr>))}</tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function ClientPanel({ user, onLogout }) {
+        const pedidosMock = [{ id: 1023, data: '10/10/2024', total: 150.00, status: 'Entregue' }, { id: 1045, data: '15/10/2024', total: 45.90, status: 'Em Transporte' }];
+        return (
+            <div className="container">
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                    <div><h1 style={{ margin: 0, color: '#667eea' }}>Minha Conta</h1><p style={{ margin: 0, color: '#777' }}>Bem-vindo de volta, <strong>{user.nome}</strong></p></div>
+                    <div><button className="btn btn-outline" style={{ marginRight: '10px' }} onClick={() => window.location.reload()}>🛒 Ir para Loja</button><button onClick={onLogout} className="btn btn-secondary">Sair</button></div>
+                </header>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+                    <div className="card">
+                        <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginTop: 0 }}>Meus Dados</h3>
+                        <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Nome</label><strong>{user.nome}</strong></div>
+                        <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Email</label><strong>{user.email}</strong></div>
+                        <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Telefone</label><strong>{user.telefone}</strong></div>
+                        <button className="btn btn-primary" style={{ width: '100%', marginTop: '20px' }}>Editar Perfil</button>
+                    </div>
+                    <div className="card">
+                         <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginTop: 0 }}>Meus Pedidos Recentes</h3>
+                         <table className="table" style={{ width: '100%' }}>
+                            <thead><tr><th># Pedido</th><th>Data</th><th>Total</th><th>Status</th></tr></thead>
+                            <tbody>{pedidosMock.map(ped => (<tr key={ped.id}><td>#{ped.id}</td><td>{ped.data}</td><td>R$ {ped.total.toFixed(2)}</td><td><span className={`badge ${ped.status === 'Entregue' ? 'badge-success' : 'badge-warning'}`}>{ped.status}</span></td></tr>))}</tbody>
+                         </table>
+                         <div style={{ textAlign: 'center', marginTop: '20px' }}><a href="#" style={{ color: '#667eea', textDecoration: 'none' }}>Ver todos os pedidos</a></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    function LojaView({ produtos, user, onLoginClick, onDashboardClick, loading, error }) {
+      return (
+        <div className="container">
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+              <h1 style={{ color: '#764ba2', margin: 0 }}>🛍️ PetLoja</h1>
+              <div>{user ? (<div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span>Olá, <strong>{user.nome}</strong></span><button onClick={onDashboardClick} className="btn btn-primary">Minha Conta</button></div>) : (<button onClick={onLoginClick} className="btn btn-primary">Fazer Login</button>)}</div>
+           </div>
+           {error && <div className="error-banner">Erro: {error}</div>}
+           {loading && <p>Carregando...</p>}
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' }}>
+              {produtos.map(prod => (
+                <div key={prod.id} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ height: '150px', background: '#f8f9fa', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '15px', fontSize: '3rem' }}>📦</div>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '1.2rem' }}>{prod.nome}</h3>
+                  <span style={{ background: '#eee', padding: '2px 8px', borderRadius: '10px', fontSize: '0.8rem', width: 'fit-content', marginBottom: '10px' }}>{prod.tipo}</span>
+                  <p style={{ color: '#666', fontSize: '0.9rem', flex: 1 }}>{prod.descricao}</p>
+                  <div style={{ marginTop: 'auto', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                      <p style={{ color: '#667eea', fontWeight: 'bold', fontSize: '1.4rem', margin: '0 0 10px 0' }}>R$ {parseFloat(prod.preco).toFixed(2)}</p>
+                      <button className="btn btn-success" style={{ width: '100%' }}>Comprar</button>
+                  </div>
+                </div>
+              ))}
+           </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [view, setView] = useState('loja');
+      const [user, setUser] = useState(null);
+      const [produtos, setProdutos] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        api.getProdutos().then(data => {
+            if(Array.isArray(data)) setProdutos(data);
+            else if(data && data.produtos) setProdutos(data.produtos);
+            setLoading(false);
+        }).catch(err => { setError(err.message); setLoading(false); });
+      }, []);
+
+      const handleLogin = (userData) => { setUser(userData); if (userData.is_admin) setView('admin'); else setView('cliente'); };
+      const handleLogout = () => { setUser(null); setView('loja'); };
+
+      return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
-          <header style={{
-            background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.secondary} 100%)`,
-            padding: '1rem 2rem',
-            color: 'white',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <h1 style={{ margin: 0, fontSize: '1.5rem' }}>🐾 PetLoja Nexus</h1>
-            <nav>
-              <button onClick={() => setView('loja')} style={{ ...styles.navButton, opacity: view === 'loja' ? 1 : 0.7 }}>Loja</button>
-              <button onClick={() => setView('admin')} style={{ ...styles.navButton, opacity: view === 'admin' ? 1 : 0.7 }}>Admin</button>
-            </nav>
-          </header>
-
-          {/* Main Content */}
-          <main style={{ flex: 1, padding: '2rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
-            
-            {view === 'loja' && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h2 style={{ color: COLORS.secondary }}>Produtos Disponíveis</h2>
-                  <button style={styles.primaryButton}>+ Filtros</button>
-                </div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' }}>
-                  {MOCK_PRODUTOS.map(prod => (
-                    <div key={prod.id} style={styles.card}>
-                      <div style={{ height: '150px', background: '#eee', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', fontSize: '3rem' }}>
-                        🐶
-                      </div>
-                      <h3 style={{ margin: '10px 0', fontSize: '1.1rem' }}>{prod.nome}</h3>
-                      <p style={{ color: '#666', fontSize: '0.9rem' }}>{prod.tipo}</p>
-                      <p style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: '1.2rem', margin: '10px 0' }}>
-                        R$ {prod.preco.toFixed(2)}
-                      </p>
-                      <button style={styles.primaryButton}>Adicionar ao Carrinho</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {view === 'admin' && (
-              <div>
-                 <h2 style={{ color: COLORS.secondary, marginBottom: '20px' }}>Painel Administrativo</h2>
-                 
-                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-                    <div style={styles.statCard}>
-                      <h3>Total Produtos</h3>
-                      <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0 0 0', color: '#333' }}>{MOCK_STATS.produtos}</p>
-                    </div>
-                    <div style={styles.statCard}>
-                      <h3>Total Clientes</h3>
-                      <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0 0 0', color: '#333' }}>{MOCK_STATS.clientes}</p>
-                    </div>
-                    <div style={styles.statCard}>
-                      <h3>Vendas Hoje</h3>
-                      <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '10px 0 0 0', color: '#333' }}>{MOCK_STATS.vendas}</p>
-                    </div>
-                 </div>
-
-                 <h3 style={{ color: '#555' }}>Ações Rápidas</h3>
-                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <button style={styles.secondaryButton}>Gerenciar Produtos</button>
-                    <button style={styles.secondaryButton}>Gerenciar Clientes</button>
-                    <button style={styles.secondaryButton}>Relatórios</button>
-                 </div>
-              </div>
-            )}
-
+          <main style={{ flex: 1 }}>
+            {view === 'loja' && <LojaView produtos={produtos} user={user} onLoginClick={() => setView('login')} onDashboardClick={() => user.is_admin ? setView('admin') : setView('cliente')} loading={loading} error={error} />}
+            {view === 'login' && <LoginForm onLogin={handleLogin} onCancel={() => setView('loja')} />}
+            {view === 'admin' && user && <AdminPanel user={user} onLogout={handleLogout} />}
+            {view === 'cliente' && user && <ClientPanel user={user} onLogout={handleLogout} />}
           </main>
-
-          <footer style={{ textAlign: 'center', padding: '20px', background: '#333', color: '#fff', marginTop: 'auto' }}>
-            <p>&copy; 2024 PetLoja Nexus. Todos os direitos reservados.</p>
+          <footer style={{ background: '#333', color: '#fff', padding: '20px', textAlign: 'center', marginTop: 'auto' }}>
+            <p>&copy; 2024 Project.</p>
           </footer>
         </div>
       );
