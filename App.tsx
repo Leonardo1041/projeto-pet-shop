@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 
 // Cores baseadas no CONFIG_VISUAL.js
@@ -116,7 +117,7 @@ export default function App() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '20px', background: '#333', color: '#fff', marginTop: 'auto' }}>
-        <p>&copy; 2024 PetLoja. Todos os direitos reservados.</p>
+        <p>&copy; 2025 PetLoja. Todos os direitos reservados.</p>
       </footer>
     </div>
   );

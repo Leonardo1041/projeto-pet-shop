@@ -12,35 +12,42 @@ require('./openapi-docs');
 const porta = process.env.PORT || 4000;
 
 app.set("view engine", "ejs");
-app.use(Express.static("public")); 
+
+// 1. Parsing Middleware (MUST be first to parse bodies)
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Log global
+// 2. Logging Middleware
 app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.url}`);
     next();
 });
 
-// ===== API ROUTES (Prioridade Alta) =====
-// Importação
+// 3. API Routes (MUST be before Static files to prevent 404s on API calls)
 const clientesApi = require("./rotas/clientes");
 const produtosApi = require("./rotas/produtos");
 
-// Montagem
 app.use("/api/clientes", clientesApi);
 app.use("/api/produtos", produtosApi);
 
-// Documentação
+// Rota de teste simples para verificar se a API está respondendo
+app.get('/api/test', (req, res) => {
+    res.json({ status: 'ok', message: 'API is working' });
+});
+
+// 4. Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Sessão
+// 5. Session
 app.use(session({
     secret: 'chave_secreta_dev',
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false }
 }));
+
+// 6. Static Files (After API, so API isn't blocked)
+app.use(Express.static("public")); 
 
 // Setup de Usuários
 app.get('/criar-usuarios', async (req, res) => {
@@ -88,16 +95,17 @@ app.get('/', (req, res) => {
 try {
     const lojaApi = require("./rotas/loja");
     const adminApi = require("./rotas/admin");
+    // Monta lojaApi na raiz, mas cuidado com conflitos
     app.use("/", lojaApi);
     app.use("/admin", adminApi);
 } catch (e) {
     console.warn("Rotas legadas não carregadas totalmente.");
 }
 
-// Global 404 Handler - Capture everything that wasn't handled
+// Global 404 Handler
 app.use((req, res) => {
     if (req.url.startsWith('/api')) {
-        return res.status(404).json({ error: "Endpoint não encontrado" });
+        return res.status(404).json({ error: "Endpoint API não encontrado" });
     }
     res.status(404).send("Página não encontrada (404)");
 });

@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const client = require('../database/connection'); 
@@ -89,6 +90,11 @@ router.post('/login', async (req, res) => {
     const match = bcrypt.compareSync(senha, user.senha || '');
     if (!match) {
       return res.status(401).json({ erro: 'Credenciais inválidas' });
+    }
+
+    // SALVAR NA SESSÃO
+    if (req.session) {
+        req.session.user = user;
     }
 
     const cliente = {

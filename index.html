@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -37,6 +38,22 @@
     .badge-warning { background: #fff3e0; color: #ef6c00; }
 
     .error-banner { background-color: #ffebee; color: #c62828; padding: 15px; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ef9a9a; }
+    
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-left: 4px solid #667eea;
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #333;
+        margin: 10px 0;
+    }
+    .stat-label { color: #666; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
   </style>
 <script type="importmap">
 {
@@ -65,13 +82,11 @@
       },
       getProdutos: async () => {
         try {
-            // Removida barra no final para evitar 404 em servidores estritos
             const res = await fetch('/api/produtos', {
                 headers: { 'Accept': 'application/json' }
             }); 
             if (!res.ok) {
                 const text = await res.text();
-                // Tenta parsear JSON se possível, senão usa texto
                 try {
                     const jsonError = JSON.parse(text);
                     throw new Error(jsonError.error || jsonError.erro || `Erro API (${res.status})`);
@@ -84,6 +99,13 @@
             console.error("Falha API:", error);
             throw error;
         }
+      },
+      getAdminStats: async () => {
+         try {
+             const res = await fetch('/admin', { headers: { 'Accept': 'application/json' } });
+             if (!res.ok) return { produtos: 0, clientes: 0, vendasHoje: 0 };
+             return res.json();
+         } catch { return { produtos: 0, clientes: 0, vendasHoje: 0 }; }
       },
       deleteProduto: async (id) => {
         const res = await fetch(`/loja/deletar/${id}`, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
@@ -123,11 +145,12 @@
       return (
         <div style={{ maxWidth: '400px', margin: '50px auto', background: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
           <h2 style={{ textAlign: 'center', color: '#667eea' }}>Acesso ao Sistema</h2>
+          
           {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>{error}</div>}
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Ex: cliente@loja.com" />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <div className="form-group">
               <label>Senha</label>
@@ -164,20 +187,26 @@
 
     function AdminPanel({ user, onLogout }) {
       const [produtos, setProdutos] = useState([]);
+      const [stats, setStats] = useState({ produtos: 0, clientes: 0, vendasHoje: 0 });
       const [editingProd, setEditingProd] = useState(null);
       const [isCreating, setIsCreating] = useState(false);
       const [msg, setMsg] = useState('');
 
-      const fetchProdutos = async () => {
-        try { const data = await api.getProdutos(); setProdutos(data); } catch (e) { console.error(e); }
+      const fetchData = async () => {
+        try { 
+            const prods = await api.getProdutos();
+            setProdutos(prods);
+            const statistics = await api.getAdminStats();
+            setStats(statistics);
+        } catch (e) { console.error(e); }
       };
 
-      useEffect(() => { fetchProdutos(); }, []);
+      useEffect(() => { fetchData(); }, []);
 
       const handleDelete = async (id) => {
         if (!confirm('Excluir produto?')) return;
         await api.deleteProduto(id);
-        fetchProdutos();
+        fetchData();
         setMsg('Produto removido.');
         setTimeout(() => setMsg(''), 3000);
       };
@@ -185,7 +214,7 @@
       const handleSave = async (data) => {
         if (editingProd) await api.updateProduto(editingProd.id, data);
         else await api.createProduto(data);
-        setIsCreating(false); setEditingProd(null); fetchProdutos();
+        setIsCreating(false); setEditingProd(null); fetchData();
         setMsg('Salvo com sucesso!');
         setTimeout(() => setMsg(''), 3000);
       };
@@ -193,16 +222,41 @@
       return (
         <div className="container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-             <h2>🔧 Painel Admin</h2>
+             <h2 style={{ color: '#667eea' }}>🔧 Painel Admin</h2>
              <div><span style={{ marginRight: '15px' }}>Olá, {user.nome}</span><button onClick={onLogout} className="btn btn-secondary">Sair</button></div>
           </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+            <div className="stat-card">
+                <div className="stat-label">Produtos</div>
+                <div className="stat-number">{stats.produtos}</div>
+            </div>
+            <div className="stat-card" style={{ borderLeftColor: '#4CAF50' }}>
+                <div className="stat-label">Clientes</div>
+                <div className="stat-number">{stats.clientes}</div>
+            </div>
+             <div className="stat-card" style={{ borderLeftColor: '#ff9800' }}>
+                <div className="stat-label">Vendas (Hoje)</div>
+                <div className="stat-number">{stats.vendasHoje}</div>
+            </div>
+          </div>
+
           {msg && <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', marginBottom: '15px' }}>{msg}</div>}
-          {(isCreating || editingProd) ? <ProdutoForm produto={editingProd} onSave={handleSave} onCancel={() => { setIsCreating(false); setEditingProd(null); }} /> : <button onClick={() => setIsCreating(true)} className="btn btn-primary" style={{ marginBottom: '15px' }}>+ Adicionar Produto</button>}
-          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-            <table className="table">
-                <thead><tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Preço</th><th>Ações</th></tr></thead>
-                <tbody>{produtos.map(p => (<tr key={p.id}><td>{p.id}</td><td>{p.nome}</td><td>{p.tipo}</td><td>R$ {parseFloat(p.preco).toFixed(2)}</td><td><button className="btn btn-primary" style={{ marginRight: '5px', padding: '5px' }} onClick={() => setEditingProd(p)}>✏️</button><button className="btn btn-danger" style={{ padding: '5px' }} onClick={() => handleDelete(p.id)}>🗑️</button></td></tr>))}</tbody>
-            </table>
+          
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                <h3 style={{margin:0}}>Gerenciar Produtos (CRUD)</h3>
+                {!isCreating && !editingProd && <button onClick={() => setIsCreating(true)} className="btn btn-primary">+ Novo Produto</button>}
+            </div>
+
+            {(isCreating || editingProd) ? 
+                <ProdutoForm produto={editingProd} onSave={handleSave} onCancel={() => { setIsCreating(false); setEditingProd(null); }} /> 
+            : 
+                <table className="table">
+                    <thead><tr><th>ID</th><th>Nome</th><th>Tipo</th><th>Preço</th><th>Ações</th></tr></thead>
+                    <tbody>{produtos.map(p => (<tr key={p.id}><td>{p.id}</td><td>{p.nome}</td><td>{p.tipo}</td><td>R$ {parseFloat(p.preco).toFixed(2)}</td><td><button className="btn btn-primary" style={{ marginRight: '5px', padding: '5px 10px' }} onClick={() => setEditingProd(p)}>Editar</button><button className="btn btn-danger" style={{ padding: '5px 10px' }} onClick={() => handleDelete(p.id)}>Excluir</button></td></tr>))}</tbody>
+                </table>
+            }
           </div>
         </div>
       );
@@ -222,6 +276,7 @@
                         <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Nome</label><strong>{user.nome}</strong></div>
                         <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Email</label><strong>{user.email}</strong></div>
                         <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Telefone</label><strong>{user.telefone}</strong></div>
+                         <div style={{ marginBottom: '10px' }}><label style={{ display: 'block', fontSize: '0.8em', color: '#999' }}>Senha</label><strong>******** (Criptografada)</strong></div>
                         <button className="btn btn-primary" style={{ width: '100%', marginTop: '20px' }}>Editar Perfil</button>
                     </div>
                     <div className="card">
@@ -291,7 +346,7 @@
             {view === 'cliente' && user && <ClientPanel user={user} onLogout={handleLogout} />}
           </main>
           <footer style={{ background: '#333', color: '#fff', padding: '20px', textAlign: 'center', marginTop: 'auto' }}>
-            <p>&copy; 2024 Project.</p>
+            <p>&copy; 2025 Project. | <a href="/api-docs" target="_blank" style={{ color: '#aaa' }}>📄 Documentação da API (OpenAPI)</a></p>
           </footer>
         </div>
       );

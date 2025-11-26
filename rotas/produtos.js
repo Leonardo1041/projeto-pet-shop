@@ -11,8 +11,9 @@ const getRows = (result) => {
     return [];
 };
 
-// Rota: GET /api/produtos ou /api/produtos/
-router.get(['/', ''], async (req, res) => {
+// Rota: GET /api/produtos/
+// Como o router está montado em /api/produtos, usamos '/' aqui.
+router.get('/', async (req, res) => {
   try {
     console.log('[API] Buscando produtos...');
     const result = await db.query('SELECT * FROM produtos ORDER BY id');
